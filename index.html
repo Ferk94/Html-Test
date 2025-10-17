@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Landing Page de Prueba</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background: #f5f5f5;
+      color: #333;
+    }
+
+    header {
+      background: #4CAF50;
+      color: white;
+      padding: 2rem;
+      text-align: center;
+    }
+
+    main {
+      max-width: 900px;
+      margin: 2rem auto;
+      padding: 1rem;
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+
+    section {
+      margin-bottom: 2rem;
+    }
+
+    h2 {
+      color: #4CAF50;
+    }
+
+    button {
+      background: #4CAF50;
+      color: white;
+      border: none;
+      padding: 0.75rem 1.5rem;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 1rem;
+    }
+
+    button:hover {
+      background: #45a049;
+    }
+
+    footer {
+      text-align: center;
+      padding: 1rem;
+      background: #eee;
+      margin-top: 2rem;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Bienvenido a Nuestra Landing Page</h1>
+  <p>Prueba de estructura básica para integrar el chat después</p>
+</header>
+
+<main>
+  <section>
+    <h2>Sección 1</h2>
+    <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nullam tincidunt arcu vel arcu fermentum, eget imperdiet justo vulputate.</p>
+    <button>Call to Action</button>
+  </section>
+
+  <section>
+    <h2>Sección 2</h2>
+    <p>Aliquam erat volutpat. Vestibulum ante ipsum primis in faucibus orci luctus et ultrices posuere cubilia curae; Sed ut perspiciatis unde omnis iste natus error sit voluptatem.</p>
+  </section>
+
+  <section>
+    <h2>Sección 3</h2>
+    <p>Curabitur non nulla sit amet nisl tempus convallis quis ac lectus. Nulla porttitor accumsan tincidunt.</p>
+  </section>
+</main>
+
+<footer>
+  &copy; 2025 Mi Empresa. Todos los derechos reservados.
+</footer>
+
+</body>
+<iframe
+  id="chatbot-iframe"
+  style="position:fixed;bottom:40px;right:30px;width:80px;height:80px;border:none;z-index:9999;border-radius:50%;overflow:hidden;"
+  title="Chat"
+></iframe>
+<script>
+  (function() {
+    const API_URL = "https://chat-widget.hivara.ai" // SE RECOMIENDA GUARDAR ESTE VALOR EN UNA VARIABLE DE ENTORNO Y BORRARLO DE ACÁ
+    const iframe = document.getElementById('chatbot-iframe');
+    iframe.src = `${API_URL}/chat`
+    let chatOpen = false;
+
+    const updateStyle = () => {
+      iframe.style.cssText = chatOpen
+        ? 'position:fixed;bottom:24px;right:24px;width:28rem;height:28rem;border:none;z-index:9999;border-radius:12px;'
+        : 'position:fixed;bottom:40px;right:30px;width:80px;height:80px;border:none;z-index:9999;border-radius:50%;overflow:hidden;';
+    };
+
+    window.addEventListener('message', (event) => {
+      if (event.origin !== API_URL) return;
+      if (event.data === 'openChat') chatOpen = true;
+      if (event.data === 'closeChat') chatOpen = false;
+      updateStyle();
+    });
+
+    window.addEventListener('load', () => {
+      if (iframe?.contentWindow) {
+        iframe.contentWindow.postMessage(
+          { type: 'init', organizationId: 5, channelId: 225 },
+          API_URL
+        );
+      }
+    });
+  })();
+</script>
+</html>
