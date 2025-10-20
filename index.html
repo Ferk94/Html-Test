@@ -115,13 +115,21 @@
     });
 
     window.addEventListener('load', () => {
+    const API_URL = "https://chat-widget.hivara.ai";
+    const iframe = document.getElementById('chatbot-iframe');
+
+    const message = { type: 'init', organizationId: 5, channelId: 225 };
+
+    const sendInit = () => {
       if (iframe?.contentWindow) {
-        iframe.contentWindow.postMessage(
-          { type: 'init', organizationId: 5, channelId: 225 },
-          API_URL
-        );
+        iframe.contentWindow.postMessage(message, API_URL);
+        clearInterval(interval);
       }
-    });
+    };
+
+    const interval = setInterval(sendInit, 500);
+    setTimeout(() => clearInterval(interval), 5000); // deja de intentar a los 5s
+  });
   })();
 </script>
 </html>
