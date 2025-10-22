@@ -92,11 +92,19 @@
   style="position:fixed;bottom:40px;right:30px;width:80px;height:80px;border:none;z-index:9999;border-radius:50%;overflow:hidden;"
   title="Chat"
 ></iframe>
+<div id="welcome-container"
+  style="position:fixed;bottom:120px;right:40px;z-index:9998;display:none;width:180px;">
+  <div id="welcome-bubble"
+    style="background:#333;color:#fff;padding:8px 12px;border-radius:8px;
+           font-size:14px;box-shadow:0 2px 8px rgba(0,0,0,0.3);">
+  </div>
+</div>
 </body>
 
 <script>
   (function() {
     const API_URL = "https://chat-widget.hivara.ai" // SE RECOMIENDA GUARDAR ESTE VALOR EN UNA VARIABLE DE ENTORNO Y BORRARLO DE ACÁ
+    // const API_URL = "http://localhost:5173" // para testeo local
     const iframe = document.getElementById('chatbot-iframe');
     iframe.src = `${API_URL}/chat`
     let chatOpen = false;
@@ -104,21 +112,34 @@
     const updateStyle = () => {
       iframe.style.cssText = chatOpen
         ? 'position:fixed;bottom:24px;right:24px;width:28rem;height:28rem;border:none;z-index:9999;border-radius:12px;'
-        : 'position:fixed;bottom:40px;right:30px;width:80px;height:80px;border:none;z-index:9999;border-radius:50%;overflow:hidden;';
+        : 'position:fixed;bottom:40px;right:30px;width:150px;height:150px;border:none;z-index:9999;border-radius:50%;overflow:hidden;';
     };
 
-    window.addEventListener('message', (event) => {
-      if (event.origin !== API_URL) return;
-      if (event.data === 'openChat') chatOpen = true;
-      if (event.data === 'closeChat') chatOpen = false;
-      updateStyle();
-    });
+   window.addEventListener('message', (event) => {
+  if (event.origin !== API_URL) return;
+
+  if (event.data === 'openChat') chatOpen = true;
+  if (event.data === 'closeChat') chatOpen = false;
+  updateStyle();
+
+  // 👇 mostrar el welcome message si llega desde el iframe
+  if (event.data?.type === 'welcomeMessage') {
+    const container = document.getElementById('welcome-container');
+    const bubble = document.getElementById('welcome-bubble');
+    bubble.textContent = event.data.payload.text;
+    container.style.display = 'block';
+    setTimeout(() => {
+      container.style.display = 'none';
+    }, 5000);
+  }
+});
 
     window.addEventListener('load', () => {
     const API_URL = "https://chat-widget.hivara.ai";
+    // const API_URL = "http://localhost:5173" // para testeo local
     const iframe = document.getElementById('chatbot-iframe');
 
-    const message = { type: 'init', organizationId: 5, channelId: 225 };
+    const message = { type: 'init', organizationId: 5, channelId: 225, iconUrl: "https://tse4.mm.bing.net/th/id/OIP.9v8IdI1j84RZtKW0U4JGRQHaHa?cb=12&rs=1&pid=ImgDetMain&o=7&rm=3", platformName: 'Html Test', welcomeMessage: '¡Hola! este es un welcomeMessage elegido por el cliente'};
 
     const sendInit = () => {
       if (iframe?.contentWindow) {
