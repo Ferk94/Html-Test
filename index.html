@@ -139,7 +139,7 @@
     // const API_URL = "http://localhost:5173" // para testeo local
     const iframe = document.getElementById('chatbot-iframe');
 
-    const message = { type: 'init', organizationId: 5, channelId: 225, iconUrl: "https://tse4.mm.bing.net/th/id/OIP.9v8IdI1j84RZtKW0U4JGRQHaHa?cb=12&rs=1&pid=ImgDetMain&o=7&rm=3", platformName: 'Html Test', welcomeMessage: '¡Hola! este es un welcomeMessage elegido por el cliente'};
+    const message = { type: 'init', organizationId: 5, channelId: 225, platformName: 'Html Test', welcomeMessage: '¡Hola! este es un welcomeMessage elegido por el cliente', landing: false, firstMessage: "Hola, bienvenido a Html Test, proporcionanos tu nombre y numero de telefono para ayudarte." };
 
     const sendInit = () => {
       if (iframe?.contentWindow) {
