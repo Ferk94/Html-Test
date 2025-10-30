@@ -82,6 +82,8 @@
     <h2>Sección 3</h2>
     <p>Curabitur non nulla sit amet nisl tempus convallis quis ac lectus. Nulla porttitor accumsan tincidunt.</p>
   </section>
+  <a href="about.html">About</a>
+  <a href="contact.html">Contact</a>
 </main>
 
 <footer>
@@ -89,7 +91,7 @@
 </footer>
 <iframe
   id="chatbot-iframe"
-  style="position:fixed;bottom:40px;right:30px;width:80px;height:80px;border:none;z-index:9999;border-radius:50%;overflow:hidden;"
+  style="position:fixed;bottom:40px;right:30px;width:80px;height:80px;border:none;z-index:9999;border-radius:50%;overflow:hidden;cursor:pointer;"
   title="Chat"
 ></iframe>
 <div id="welcome-container"
@@ -152,5 +154,21 @@
     setTimeout(() => clearInterval(interval), 5000); // deja de intentar a los 5s
   });
   })();
+  const iframe = document.getElementById('chatbot-iframe');
+iframe.style.display = 'none'; // Oculto por defecto
+
+window.addEventListener('message', (event) => {
+  if (event.data?.type === 'iframeReady') {
+    console.log('recibo el iframeReady')
+    iframe.style.display = 'block'; // Mostrar cuando esté listo
+  }
+});
+</script>
+<script>
+  // Oculta el iframe si NO estamos en la página principal
+  if (window.location.pathname !== '/' && !window.location.pathname.endsWith('index.html')) {
+    const iframe = document.getElementById('chatbot-iframe');
+    if (iframe) iframe.remove();
+  }
 </script>
 </html>
