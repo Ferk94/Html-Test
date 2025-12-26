@@ -110,18 +110,64 @@
     const iframe = document.getElementById('chatbot-iframe');
     iframe.src = `${API_URL}/chat`
     let chatOpen = false;
+    let maximized = false; 
 
-    const updateStyle = () => {
-      iframe.style.cssText = chatOpen
-        ? 'position:fixed;bottom:24px;right:24px;width:28rem;height:28rem;border:none;z-index:9999;border-radius:12px;'
-        : 'position:fixed;bottom:40px;right:30px;width:150px;height:150px;border:none;z-index:9999;border-radius:50%;overflow:hidden;';
-    };
+    const isMobile = () => window.matchMedia('(max-width: 768px)').matches;
+
+  const updateStyle = () => {
+  if (chatOpen) {
+    if (isMobile()) {
+      console.log('cae al caso mobile')
+      iframe.style.removeProperty('bottom');
+      iframe.style.removeProperty('right');
+      iframe.style.removeProperty('border-radius')
+      iframe.style.cssText = `
+        position: fixed !important;
+        inset: 0 !important;
+        width: 100vw !important;
+        height: 100vh !important;
+        max-width: 100vw !important;
+        max-height: 100vh !important;
+        border: none !important;
+        border-radius: 0 !important;
+        z-index: 9999 !important;
+        bottom: 0 !important;
+      `;
+    } else {
+      iframe.style.cssText = `
+        position:fixed;
+        bottom:24px;
+        right:24px;
+        width:28rem;
+        height:${maximized ? '38rem' : '28rem'};
+        border:none;
+        z-index:9999;
+        border-radius:12px;
+      `;
+    }
+  } else {
+    iframe.style.cssText = `
+      position:fixed;
+      bottom:40px;
+      right:30px;
+      width:80px;
+      height:80px;
+      border:none;
+      z-index:9999;
+      border-radius:50%;
+      overflow:hidden;
+      cursor:pointer;
+    `;
+  }
+};
 
    window.addEventListener('message', (event) => {
   if (event.origin !== API_URL) return;
 
   if (event.data === 'openChat') chatOpen = true;
   if (event.data === 'closeChat') chatOpen = false;
+  if (event.data === 'maximizedChat') maximized = true
+  if (event.data === 'minimizedChat') maximized = false
   updateStyle();
 
   // 👇 mostrar el welcome message si llega desde el iframe
@@ -141,10 +187,16 @@
     // const API_URL = "http://localhost:5173" // para testeo local
     const iframe = document.getElementById('chatbot-iframe');
 
-    const message = { type: 'init', organizationId: 5, channelId: 225, platformName: 'Html Test', welcomeMessage: '¡Hola! este es un welcomeMessage elegido por el cliente', landing: false, firstMessage: "Hola, bienvenido a Html Test, proporcionanos tu nombre y numero de telefono para ayudarte." };
+    const message = { type: 'init', organizationId: 5, channelId: 225, platformName: 'Html Test', welcomeMessage: '¡Hola! este es un welcomeMessage elegido por el cliente', landing: false, firstMessage: "Hola, bienvenido a Html Test, proporcionanos tu nombre y numero de telefono para ayudarte.", isMobile: false };
 
     const sendInit = () => {
       if (iframe?.contentWindow) {
+        if(isMobile()) {
+          console.log('es mobile desde index.html')
+          message.isMobile = true
+        } else {
+          message.isMobile = false
+        }
         iframe.contentWindow.postMessage(message, API_URL);
         clearInterval(interval);
       }
@@ -164,11 +216,17 @@ window.addEventListener('message', (event) => {
   }
 });
 </script>
-<script>
-  // Oculta el iframe si NO estamos en la página principal
-  if (window.location.pathname !== '/' && !window.location.pathname.endsWith('index.html')) {
-    const iframe = document.getElementById('chatbot-iframe');
+<!-- <script>
+  const path = window.location.pathname;
+
+  // Mostrar solo en index.html, raíz o about.html
+  if (
+    !path.endsWith("index.html") &&
+    !path.endsWith("/") &&
+    !path.includes("about.html")
+  ) {
+    const iframe = document.getElementById("chatbot-iframe");
     if (iframe) iframe.remove();
   }
-</script>
+</script> -->
 </html>
