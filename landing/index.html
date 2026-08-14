@@ -107,10 +107,19 @@
   </div>
 
   <script>
-    // Mismos valores que el script del burbuja en /index.html: tienen que
+    // Mismos org/canal que el script del burbuja en /index.html: tienen que
     // apuntar a la misma organización/canal, o fastlogin no va a encontrar
     // el mismo chat que después usa BeastWebchatApi.auth() en la landing.
-    const API_BASE = "https://chat-widget-preprod.agentes-ia.net";
+    //
+    // OJO: usamos el backend real (api-preprod), NO el dominio del widget
+    // (chat-widget-preprod). El widget le pega a /api/v1/gaming/... como
+    // same-origin (corre dentro de un iframe de ese mismo dominio), así que
+    // nunca dispara un preflight CORS ahí. Pero esta landing es un origen
+    // distinto: el navegador SÍ hace preflight, y chat-widget-preprod
+    // responde con un redirect a ese path en vez de una respuesta CORS
+    // directa — los navegadores bloquean redirects en preflight por spec.
+    // api-preprod.agentes-ia.net expone el mismo endpoint sin ese problema.
+    const API_BASE = "https://api-preprod.agentes-ia.net";
     const ORGANIZATION_ID = 30;
     const CHANNEL_ID = 161;
 
