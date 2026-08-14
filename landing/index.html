@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login - Prueba host auth</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background: #f5f5f5;
+      color: #333;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+    }
+
+    .card {
+      width: 100%;
+      max-width: 360px;
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      padding: 2rem;
+    }
+
+    h1 {
+      margin-top: 0;
+      color: #4CAF50;
+      font-size: 1.3rem;
+      text-align: center;
+    }
+
+    p.subtitle {
+      text-align: center;
+      color: #666;
+      font-size: 0.9rem;
+      margin-top: -0.5rem;
+      margin-bottom: 1.5rem;
+    }
+
+    label {
+      display: block;
+      font-size: 0.85rem;
+      margin-bottom: 0.3rem;
+      color: #444;
+    }
+
+    input {
+      width: 100%;
+      padding: 0.65rem 0.75rem;
+      margin-bottom: 1rem;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 1rem;
+      box-sizing: border-box;
+    }
+
+    button {
+      width: 100%;
+      background: #4CAF50;
+      color: white;
+      border: none;
+      padding: 0.75rem 1.5rem;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 1rem;
+    }
+
+    button:hover {
+      background: #45a049;
+    }
+
+    button:disabled {
+      background: #a5d6a7;
+      cursor: not-allowed;
+    }
+
+    .error {
+      color: #c62828;
+      font-size: 0.85rem;
+      margin-top: -0.5rem;
+      margin-bottom: 1rem;
+      min-height: 1.1em;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="card">
+    <h1>Iniciar sesión</h1>
+    <p class="subtitle">Esto simula el login propio de la plataforma (no el del chat)</p>
+    <form id="login-form">
+      <label for="username">Usuario</label>
+      <input type="text" id="username" name="username" autocomplete="username" required>
+
+      <label for="password">Contraseña</label>
+      <input type="password" id="password" name="password" autocomplete="current-password" required>
+
+      <div class="error" id="error"></div>
+
+      <button type="submit" id="submit-btn">Ingresar</button>
+    </form>
+  </div>
+
+  <script>
+    // Mismos valores que el script del burbuja en /index.html: tienen que
+    // apuntar a la misma organización/canal, o fastlogin no va a encontrar
+    // el mismo chat que después usa BeastWebchatApi.auth() en la landing.
+    const API_BASE = "https://chat-widget-preprod.agentes-ia.net";
+    const ORGANIZATION_ID = 30;
+    const CHANNEL_ID = 161;
+
+    // Clave que lee index.html al cargar para saber si tiene que loguear
+    // el chat automáticamente vía data-host-auth-enabled.
+    const PENDING_AUTH_KEY = "pending_host_auth_player_id";
+
+    const form = document.getElementById("login-form");
+    const errorEl = document.getElementById("error");
+    const submitBtn = document.getElementById("submit-btn");
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      errorEl.textContent = "";
+      submitBtn.disabled = true;
+      submitBtn.textContent = "Ingresando...";
+
+      const username = document.getElementById("username").value.trim();
+      const password = document.getElementById("password").value;
+
+      try {
+        const response = await fetch(`${API_BASE}/api/v1/gaming/player/fastlogin/`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            organization_id: ORGANIZATION_ID,
+            channel_id: CHANNEL_ID,
+            username,
+            password,
+          }),
+        });
+
+        const json = await response.json().catch(() => null);
+        if (!response.ok || !json?.status) {
+          throw new Error(json?.message || "No se pudo iniciar sesión");
+        }
+
+        const playerId = json?.data?.player?.player_id ?? json?.data?.player_id;
+        if (!playerId) {
+          throw new Error("Respuesta de login inválida (falta player_id)");
+        }
+
+        localStorage.setItem(PENDING_AUTH_KEY, String(playerId));
+        window.location.href = "/";
+      } catch (err) {
+        errorEl.textContent = err.message || "Error de conexión";
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Ingresar";
+      }
+    });
+  </script>
+</body>
+
+</html>
