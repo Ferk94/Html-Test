@@ -88,6 +88,7 @@
     </section>
     <a href="about.html">About</a>
     <a href="contact.html">Contact</a>
+    <a href="landing/">Login (prueba host auth)</a>
     <a href="https://wa.me/5491176092808?text=%C2%A1Quiero%20saber%20m%C3%A1s%20sobre%20el%20HOT%20SALE!" target="_blank" rel="noopener noreferrer">Escribinos por WhatsApp</a>
   </main>
 
@@ -104,6 +105,7 @@
 
   <script
   id="beast-webchat-embed"
+  data-embed-version="v1.0.3"
   src="https://chat-widget-preprod.agentes-ia.net/embed.js"
   data-api-url="https://chat-widget-preprod.agentes-ia.net"
   data-org-id="30"
@@ -116,7 +118,43 @@
   data-first-message="Hola! bienvenido, en que te ayudamos?"
   data-icon-url=""
   data-pwa-url="http://test.appjugando.com/platense"
+  data-host-auth-enabled="true"
 ></script>
+
+  <script>
+    // Prueba de login desde la plataforma host: /landing/ guarda el
+    // player_id en localStorage tras loguearse contra fastlogin y redirige
+    // acá. Si está presente, logueamos el chat automáticamente vía
+    // BeastWebchatApi.auth() (requiere data-host-auth-enabled="true" arriba).
+    // Si no está presente, no hacemos nada: el burbuja se comporta normal.
+    (function () {
+      const PENDING_AUTH_KEY = "pending_host_auth_player_id";
+      const playerId = localStorage.getItem(PENDING_AUTH_KEY);
+      if (!playerId) return;
+      localStorage.removeItem(PENDING_AUTH_KEY);
+
+      let confirmed = false;
+      window.addEventListener("message", (event) => {
+        if (event.data && event.data.type === "AUTH_CONFIRMED") {
+          confirmed = true;
+          console.log("[landing] chat autenticado via host auth");
+        }
+      });
+
+      let attempts = 0;
+      const maxAttempts = 20; // ~10s a 500ms
+      const interval = setInterval(() => {
+        attempts += 1;
+        if (confirmed || attempts > maxAttempts) {
+          clearInterval(interval);
+          return;
+        }
+        if (window.BeastWebchatApi && typeof window.BeastWebchatApi.auth === "function") {
+          window.BeastWebchatApi.auth(playerId);
+        }
+      }, 500);
+    })();
+  </script>
 </body>
 
 
