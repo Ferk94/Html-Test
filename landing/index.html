@@ -124,8 +124,10 @@
     const CHANNEL_ID = 161;
 
     // Clave que lee index.html al cargar para saber si tiene que loguear
-    // el chat automáticamente vía data-host-auth-enabled.
-    const PENDING_AUTH_KEY = "pending_host_auth_player_id";
+    // el chat automáticamente vía data-host-auth-enabled. Guardamos la
+    // respuesta completa de fastlogin (incluye password) — el burbuja la
+    // usa tal cual, sin volver a golpear al backend él mismo.
+    const PENDING_AUTH_KEY = "pending_host_auth_payload";
 
     const form = document.getElementById("login-form");
     const errorEl = document.getElementById("error");
@@ -157,12 +159,12 @@
           throw new Error(json?.message || "No se pudo iniciar sesión");
         }
 
-        const playerId = json?.data?.player?.player_id ?? json?.data?.player_id;
-        if (!playerId) {
-          throw new Error("Respuesta de login inválida (falta player_id)");
+        const authData = json?.data;
+        if (!authData?.player || !authData?.chat_id) {
+          throw new Error("Respuesta de login inválida");
         }
 
-        localStorage.setItem(PENDING_AUTH_KEY, String(playerId));
+        localStorage.setItem(PENDING_AUTH_KEY, JSON.stringify(authData));
         window.location.href = "/";
       } catch (err) {
         errorEl.textContent = err.message || "Error de conexión";
