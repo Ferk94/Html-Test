@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Registro - Prueba host auth</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background: #f5f5f5;
+      color: #333;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+    }
+
+    .card {
+      width: 100%;
+      max-width: 360px;
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      padding: 2rem;
+    }
+
+    h1 {
+      margin-top: 0;
+      color: #4CAF50;
+      font-size: 1.3rem;
+      text-align: center;
+    }
+
+    p.subtitle {
+      text-align: center;
+      color: #666;
+      font-size: 0.9rem;
+      margin-top: -0.5rem;
+      margin-bottom: 1.5rem;
+    }
+
+    label {
+      display: block;
+      font-size: 0.85rem;
+      margin-bottom: 0.3rem;
+      color: #444;
+    }
+
+    input {
+      width: 100%;
+      padding: 0.65rem 0.75rem;
+      margin-bottom: 1rem;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 1rem;
+      box-sizing: border-box;
+    }
+
+    button {
+      width: 100%;
+      background: #4CAF50;
+      color: white;
+      border: none;
+      padding: 0.75rem 1.5rem;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 1rem;
+    }
+
+    button:hover {
+      background: #45a049;
+    }
+
+    button:disabled {
+      background: #a5d6a7;
+      cursor: not-allowed;
+    }
+
+    .error {
+      color: #c62828;
+      font-size: 0.85rem;
+      margin-top: -0.5rem;
+      margin-bottom: 1rem;
+      min-height: 1.1em;
+    }
+
+    .switch-link {
+      text-align: center;
+      font-size: 0.85rem;
+      color: #666;
+      margin-top: 1rem;
+    }
+
+    .switch-link a {
+      color: #4CAF50;
+      font-weight: bold;
+      text-decoration: none;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    .credentials-box {
+      background: #f5f5f5;
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      padding: 1rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .credential-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+    }
+
+    .credential-row + .credential-row {
+      margin-top: 0.9rem;
+    }
+
+    .credential-text {
+      min-width: 0;
+    }
+
+    .credential-label {
+      font-size: 0.7rem;
+      color: #888;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    .credential-value {
+      font-size: 1rem;
+      font-weight: bold;
+      color: #222;
+      word-break: break-all;
+    }
+
+    .copy-btn {
+      width: auto;
+      flex-shrink: 0;
+      background: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 999px;
+      padding: 0.4rem 0.9rem;
+      font-size: 0.8rem;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    .copy-btn:hover {
+      background: #45a049;
+    }
+
+    .play-btn {
+      background: #ff9800;
+      font-size: 1.05rem;
+      font-weight: bold;
+    }
+
+    .play-btn:hover {
+      background: #fb8c00;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="card">
+    <div id="form-view">
+      <h1>Crear cuenta</h1>
+      <p class="subtitle">Elegí un usuario, nosotros generamos la contraseña</p>
+      <form id="register-form">
+        <label for="username">Usuario</label>
+        <input type="text" id="username" name="username" autocomplete="username" required>
+
+        <div class="error" id="error"></div>
+
+        <button type="submit" id="submit-btn">Registrarme</button>
+      </form>
+      <p class="switch-link">¿Ya tenés cuenta? <a href="/landing/">Iniciar sesión</a></p>
+    </div>
+
+    <div id="success-view" class="hidden">
+      <h1>¡Cuenta creada!</h1>
+      <p class="subtitle">Guardá tus datos, los vas a necesitar para volver a entrar</p>
+
+      <div class="credentials-box">
+        <div class="credential-row">
+          <div class="credential-text">
+            <div class="credential-label">Usuario</div>
+            <div class="credential-value" id="result-username">-</div>
+          </div>
+          <button type="button" class="copy-btn" id="copy-username">Copiar</button>
+        </div>
+        <div class="credential-row">
+          <div class="credential-text">
+            <div class="credential-label">Contraseña</div>
+            <div class="credential-value" id="result-password">-</div>
+          </div>
+          <button type="button" class="copy-btn" id="copy-password">Copiar</button>
+        </div>
+      </div>
+
+      <button type="button" class="play-btn" id="play-btn">¡Jugar Ya! 🚀</button>
+    </div>
+  </div>
+
+  <script>
+    // Mismos org/canal y mismo backend que /landing/index.html (login) — ver
+    // los comentarios de ese archivo para el motivo de usar api-preprod en
+    // vez del dominio del widget (CORS preflight + redirect).
+    const API_BASE = "https://api-preprod.agentes-ia.net";
+    const ORGANIZATION_ID = 30;
+    const CHANNEL_ID = 161;
+
+    // Misma clave que lee index.html al cargar. Guardamos la respuesta
+    // completa de fastregister (incluye la password generada) tal cual,
+    // igual que hace el login — el burbuja no vuelve a golpear al backend.
+    const PENDING_AUTH_KEY = "pending_host_auth_payload";
+
+    const formView = document.getElementById("form-view");
+    const successView = document.getElementById("success-view");
+    const form = document.getElementById("register-form");
+    const errorEl = document.getElementById("error");
+    const submitBtn = document.getElementById("submit-btn");
+
+    let authData = null;
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      errorEl.textContent = "";
+      submitBtn.disabled = true;
+      submitBtn.textContent = "Registrando...";
+
+      const username = document.getElementById("username").value.trim();
+
+      try {
+        const response = await fetch(`${API_BASE}/api/v1/gaming/player/fastregister/`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            organization_id: ORGANIZATION_ID,
+            channel_id: CHANNEL_ID,
+            username,
+          }),
+        });
+
+        const json = await response.json().catch(() => null);
+        if (!response.ok || !json?.status) {
+          throw new Error(json?.message || "No se pudo crear la cuenta");
+        }
+
+        authData = json?.data;
+        if (!authData?.player?.username || !authData?.player?.password || !authData?.chat_id) {
+          throw new Error("Respuesta de registro inválida");
+        }
+
+        document.getElementById("result-username").textContent = authData.player.username;
+        document.getElementById("result-password").textContent = authData.player.password;
+        formView.classList.add("hidden");
+        successView.classList.remove("hidden");
+      } catch (err) {
+        errorEl.textContent = err.message || "Error de conexión";
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Registrarme";
+      }
+    });
+
+    const copyValue = async (elementId, button) => {
+      const value = document.getElementById(elementId).textContent;
+      try {
+        await navigator.clipboard.writeText(value);
+        const original = button.textContent;
+        button.textContent = "Copiado";
+        setTimeout(() => (button.textContent = original), 1500);
+      } catch {
+        // Sin permiso de portapapeles: no rompemos el flujo, solo no copia.
+      }
+    };
+
+    document.getElementById("copy-username").addEventListener("click", (e) => {
+      copyValue("result-username", e.currentTarget);
+    });
+    document.getElementById("copy-password").addEventListener("click", (e) => {
+      copyValue("result-password", e.currentTarget);
+    });
+
+    document.getElementById("play-btn").addEventListener("click", () => {
+      if (!authData) return;
+      localStorage.setItem(PENDING_AUTH_KEY, JSON.stringify(authData));
+      window.location.href = "/";
+    });
+  </script>
+</body>
+
+</html>
