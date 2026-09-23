@@ -124,25 +124,79 @@
 ></script>
 
   <script>
-    // Prueba de login desde la plataforma host: /landing/ guarda la
-    // respuesta completa de fastlogin en localStorage y redirige acá. Si
-    // está presente, se la pasamos tal cual al burbuja vía
-    // BeastWebchatApi.auth() (requiere data-host-auth-enabled="true"
-    // arriba) — el burbuja no vuelve a golpear al backend por su cuenta.
-    // Si no está presente, no hacemos nada: el burbuja se comporta normal.
-    (function () {
-      const PENDING_AUTH_KEY = "pending_host_auth_payload";
-      const raw = localStorage.getItem(PENDING_AUTH_KEY);
-      if (!raw) return;
-      localStorage.removeItem(PENDING_AUTH_KEY);
+    // Mismos org/canal que el script del burbuja de arriba y que
+    // /landing/index.html — fastloginfromplayer necesita saber a qué
+    // organización/canal pertenece el player_id.
+    const API_BASE = "https://api-preprod.agentes-ia.net";
+    const ORGANIZATION_ID = 30;
+    const CHANNEL_ID = 161;
 
-      let authPayload;
-      try {
-        authPayload = JSON.parse(raw);
-      } catch (e) {
-        console.error("[landing] pending_host_auth_payload inválido", e);
-        return;
+    // Dos formas de llegar acá con una sesión de host auth pendiente:
+    // 1) /landing/ (login o registro de prueba, EN ESTE MISMO sitio) guarda
+    //    la respuesta completa de fastlogin/fastregister en localStorage y
+    //    redirige acá — mismo origen, localStorage funciona, ya viene con
+    //    el payload completo ({player, chat_id, contact_hash}).
+    // 2) Una landing generada real (otro dominio, ej. landing-1.vercel.app)
+    //    ya llamó a fastregister ELLA MISMA y redirige acá con
+    //    ?player_id=<id> en la query string (redirect_target_url) — no hay
+    //    localStorage compartido entre dominios, así que acá solo llega el
+    //    id, no el payload completo.
+    //
+    //    OJO: BeastWebchatApi.auth({id: playerId}) NO alcanza acá. El
+    //    burbuja solo resuelve ese formato "solo id" internamente contra
+    //    fastloginfromplayer para un adapter interno específico de
+    //    Potrero/Gana365 (matcheado por el hostname de pwaUrl) — para
+    //    cualquier otra organización (como esta de prueba) el burbuja
+    //    ignora {id} y sigue pidiendo login. Confirmado invocando
+    //    fastloginfromplayer nosotros mismos: sin resolverlo acá, nunca
+    //    llega el AUTH_CONFIRMED. Por eso la plataforma tiene que llamar a
+    //    fastloginfromplayer ella misma (mismo endpoint, mismo payload de
+    //    respuesta que fastlogin/fastregister) y pasarle ESE resultado
+    //    completo a BeastWebchatApi.auth(), igual que hace /landing/.
+    //
+    // En ambos casos, se lo pasamos a BeastWebchatApi.auth() (requiere
+    // data-host-auth-enabled="true" arriba). Si ninguna de las dos fuentes
+    // tiene nada, no hacemos nada: el burbuja se comporta normal.
+    (async function () {
+      let authPayload = null;
+
+      const PENDING_AUTH_KEY = "pending_host_auth_payload";
+      const rawPending = localStorage.getItem(PENDING_AUTH_KEY);
+      if (rawPending) {
+        localStorage.removeItem(PENDING_AUTH_KEY);
+        try {
+          authPayload = JSON.parse(rawPending);
+        } catch (e) {
+          console.error("[landing] pending_host_auth_payload inválido", e);
+        }
       }
+
+      if (!authPayload) {
+        const playerId = new URLSearchParams(window.location.search).get("player_id");
+        if (playerId) {
+          try {
+            const response = await fetch(`${API_BASE}/api/v1/gaming/player/fastloginfromplayer/`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                organization_id: ORGANIZATION_ID,
+                channel_id: CHANNEL_ID,
+                player_id: playerId,
+              }),
+            });
+            const json = await response.json().catch(() => null);
+            if (response.ok && json?.status && json?.data?.player && json?.data?.chat_id != null) {
+              authPayload = json.data;
+            } else {
+              console.error("[landing] fastloginfromplayer falló", json);
+            }
+          } catch (e) {
+            console.error("[landing] fastloginfromplayer error de red", e);
+          }
+        }
+      }
+
+      if (!authPayload) return;
 
       let confirmed = false;
       window.addEventListener("message", (event) => {
