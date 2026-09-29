@@ -131,6 +131,55 @@
     const ORGANIZATION_ID = 30;
     const CHANNEL_ID = 161;
 
+    // Clave de firma de PLATFORM_LOGIN_SIGNING_SECRETS en preprod — nunca
+    // hardcodear esto en un sitio real de un partner (ahí se comparte por
+    // canal seguro aparte); acá es aceptable porque este es nuestro propio
+    // sitio de test end-to-end, no una integración de un tercero.
+    const PLATFORM_LOGIN_SIGNING_SECRET = "67f356062da0bac4ae89e6eabf92cc984f41259222f1a141e54c94cac2ebe157";
+    const PLATFORM_LOGIN_TOKEN_WINDOW_SECONDS = 300;
+
+    // Verifica <player_id>.<timestamp>.<firma_hmac_sha256_hex> — mismo
+    // esquema que landing.services.platform_login_token_service
+    // (build_platform_login_token) en w_bot. Devuelve el player_id si la
+    // firma matchea y no expiró, o null si el token es inválido/viejo.
+    async function verifyPlatformLoginToken(token, secret, windowSeconds) {
+      const parts = token.split(".");
+      if (parts.length !== 3) return null;
+      const [playerId, timestampStr, signature] = parts;
+
+      const encoder = new TextEncoder();
+      const key = await crypto.subtle.importKey(
+        "raw",
+        encoder.encode(secret),
+        { name: "HMAC", hash: "SHA-256" },
+        false,
+        ["sign"],
+      );
+      const signatureBuffer = await crypto.subtle.sign(
+        "HMAC",
+        key,
+        encoder.encode(`${playerId}\n${timestampStr}`),
+      );
+      const expectedSignature = Array.from(new Uint8Array(signatureBuffer))
+        .map((b) => b.toString(16).padStart(2, "0"))
+        .join("");
+
+      // Comparación en tiempo constante — la longitud en sí no es secreta
+      // (siempre 64 hex chars de un SHA-256), así que compararla primero no
+      // filtra nada que la firma ya no filtre.
+      if (expectedSignature.length !== signature.length) return null;
+      let mismatch = 0;
+      for (let i = 0; i < expectedSignature.length; i++) {
+        mismatch |= expectedSignature.charCodeAt(i) ^ signature.charCodeAt(i);
+      }
+      if (mismatch !== 0) return null;
+
+      const ageSeconds = Math.abs(Math.floor(Date.now() / 1000) - parseInt(timestampStr, 10));
+      if (!Number.isFinite(ageSeconds) || ageSeconds > windowSeconds) return null;
+
+      return playerId;
+    }
+
     // Dos formas de llegar acá con una sesión de host auth pendiente:
     // 1) /landing/ (login o registro de prueba, EN ESTE MISMO sitio) guarda
     //    la respuesta completa de fastlogin/fastregister en localStorage y
@@ -138,9 +187,12 @@
     //    el payload completo ({player, chat_id, contact_hash}).
     // 2) Una landing generada real (otro dominio, ej. landing-1.vercel.app)
     //    ya llamó a fastregister ELLA MISMA y redirige acá con
-    //    ?player_id=<id> en la query string (redirect_target_url) — no hay
-    //    localStorage compartido entre dominios, así que acá solo llega el
-    //    id, no el payload completo.
+    //    ?hivara_login_token=<player_id>.<timestamp>.<firma> en la query
+    //    string (redirect_target_url) — no hay localStorage compartido
+    //    entre dominios, así que acá solo llega el token firmado, no el
+    //    payload completo. Reemplaza al viejo ?player_id=<id> sin firma
+    //    (guessable/replayable para siempre) — ver
+    //    integracion-login-token-firmado.html.
     //
     //    OJO: BeastWebchatApi.auth({id: playerId}) NO alcanza acá. El
     //    burbuja solo resuelve ese formato "solo id" internamente contra
@@ -172,26 +224,35 @@
       }
 
       if (!authPayload) {
-        const playerId = new URLSearchParams(window.location.search).get("player_id");
-        if (playerId) {
-          try {
-            const response = await fetch(`${API_BASE}/api/v1/gaming/player/fastloginfromplayer/`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                organization_id: ORGANIZATION_ID,
-                channel_id: CHANNEL_ID,
-                player_id: playerId,
-              }),
-            });
-            const json = await response.json().catch(() => null);
-            if (response.ok && json?.status && json?.data?.player && json?.data?.chat_id != null) {
-              authPayload = json.data;
-            } else {
-              console.error("[landing] fastloginfromplayer falló", json);
+        const loginToken = new URLSearchParams(window.location.search).get("hivara_login_token");
+        if (loginToken) {
+          const playerId = await verifyPlatformLoginToken(
+            loginToken,
+            PLATFORM_LOGIN_SIGNING_SECRET,
+            PLATFORM_LOGIN_TOKEN_WINDOW_SECONDS,
+          );
+          if (!playerId) {
+            console.error("[landing] hivara_login_token inválido o expirado");
+          } else {
+            try {
+              const response = await fetch(`${API_BASE}/api/v1/gaming/player/fastloginfromplayer/`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  organization_id: ORGANIZATION_ID,
+                  channel_id: CHANNEL_ID,
+                  player_id: playerId,
+                }),
+              });
+              const json = await response.json().catch(() => null);
+              if (response.ok && json?.status && json?.data?.player && json?.data?.chat_id != null) {
+                authPayload = json.data;
+              } else {
+                console.error("[landing] fastloginfromplayer falló", json);
+              }
+            } catch (e) {
+              console.error("[landing] fastloginfromplayer error de red", e);
             }
-          } catch (e) {
-            console.error("[landing] fastloginfromplayer error de red", e);
           }
         }
       }
