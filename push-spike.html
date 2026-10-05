@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Hivara Push Spike</title>
+  <link rel="manifest" href="/spike/manifest.webmanifest" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <style>
+    body { font-family: system-ui, sans-serif; background: #0f172a; color: #e2e8f0; margin: 0; padding: 16px; }
+    h1 { font-size: 20px; margin: 0 0 4px; }
+    section { background: #1e293b; border-radius: 12px; padding: 14px; margin: 12px 0; }
+    h2 { font-size: 15px; margin: 0 0 8px; color: #86efac; }
+    button { background: #16a34a; color: #fff; border: 0; border-radius: 8px; padding: 9px 14px; margin: 4px 6px 4px 0; font-size: 14px; cursor: pointer; }
+    button.secondary { background: #475569; }
+    pre { background: #020617; padding: 10px; border-radius: 8px; white-space: pre-wrap; word-break: break-all; font-size: 12px; max-height: 260px; overflow: auto; }
+    iframe { width: 100%; height: 80px; border: 1px dashed #64748b; border-radius: 8px; background: #fff; }
+    .banner { background: #facc15; color: #111; padding: 10px; border-radius: 8px; font-weight: 600; display: none; }
+    small { color: #94a3b8; }
+  </style>
+</head>
+<body>
+  <h1>Hivara — spike de Web Push</h1>
+  <small>Página aislada para validar el diseño de add-bubble-broadcast-web-push. No afecta la landing.</small>
+
+  <div id="openBanner" class="banner">✅ La burbuja se "abriría" acá (deep link / HIVARA_OPEN_CHAT recibido)</div>
+
+  <section>
+    <h2>1. Entorno</h2>
+    <pre id="env"></pre>
+  </section>
+
+  <section>
+    <h2>2. Service workers (scope propio /hivara-push/)</h2>
+    <button id="btnRegister">Registrar SW Hivara (/hivara-push/)</button>
+    <button id="btnRootSw" class="secondary">Registrar SW "del partner" en / (prueba de convivencia)</button>
+    <button id="btnListSw" class="secondary">Listar registros</button>
+  </section>
+
+  <section>
+    <h2>3. Test B — permiso pedido tras un clic DENTRO de un iframe cross-origin</h2>
+    <small>Hacerlo primero, con el permiso en "default" (ventana de incógnito o permisos reseteados).</small>
+    <iframe id="xoFrame" title="iframe cross-origin"></iframe>
+  </section>
+
+  <section>
+    <h2>4. Test A — pre-aviso en la página principal (diseño elegido)</h2>
+    <button id="btnActivate">Activar notificaciones</button>
+    <button id="btnUnsubscribe" class="secondary">Desuscribir</button>
+    <button id="btnCopy" class="secondary">Copiar suscripción</button>
+    <pre id="subscription">(sin suscripción)</pre>
+  </section>
+
+  <section>
+    <h2>5. Log</h2>
+    <pre id="log"></pre>
+  </section>
+
+  <script>
+    const VAPID_PUBLIC_KEY = "BC5dU0gQkFtCbGpvAj_v38XK3MgA9fatZ8rFTOZwz1KvtSnsK6zcJ4Kf-2uOYA-lD468lXuWilSiMoDCRVI9Slk";
+    const SW_PATH = "/hivara-push/sw.js";
+    const SW_SCOPE = "/hivara-push/";
+
+    const $ = (id) => document.getElementById(id);
+    const log = (...args) => {
+      const line = `[${new Date().toLocaleTimeString()}] ` + args.map((a) => (typeof a === "string" ? a : JSON.stringify(a))).join(" ");
+      $("log").textContent = line + "\n" + $("log").textContent;
+      console.log("[spike]", ...args);
+    };
+
+    function report() {
+      const standalone = window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
+      $("env").textContent = JSON.stringify({
+        origin: location.origin,
+        userAgent: navigator.userAgent,
+        serviceWorker: "serviceWorker" in navigator,
+        PushManager: "PushManager" in window,
+        Notification: "Notification" in window,
+        permission: "Notification" in window ? Notification.permission : "n/a",
+        standalonePWA: standalone,
+        userActivationAPI: "userActivation" in navigator,
+      }, null, 2);
+    }
+
+    function urlBase64ToUint8Array(base64) {
+      const padding = "=".repeat((4 - (base64.length % 4)) % 4);
+      const raw = atob((base64 + padding).replace(/-/g, "+").replace(/_/g, "/"));
+      return Uint8Array.from([...raw].map((c) => c.charCodeAt(0)));
+    }
+
+    async function registerHivaraSw() {
+      try {
+        const reg = await navigator.serviceWorker.register(SW_PATH, { scope: SW_SCOPE });
+        log("SW Hivara registrado", { scope: reg.scope });
+        return reg;
+      } catch (e) {
+        log("❌ Registro del SW Hivara falló:", String(e));
+        throw e;
+      }
+    }
+
+    async function subscribe(reg) {
+      const sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+      });
+      showSubscription(sub);
+      return sub;
+    }
+
+    function showSubscription(sub) {
+      const json = sub ? sub.toJSON() : null;
+      $("subscription").textContent = json ? JSON.stringify({ ...json, page_url: location.origin + location.pathname, ua: navigator.userAgent }, null, 2) : "(sin suscripción)";
+    }
+
+    async function requestAndSubscribe(source) {
+      const activeBefore = navigator.userActivation ? navigator.userActivation.isActive : "n/a";
+      log(`[${source}] requestPermission — userActivation.isActive=${activeBefore}`);
+      const t0 = performance.now();
+      const result = await Notification.requestPermission();
+      log(`[${source}] resultado: ${result} (${Math.round(performance.now() - t0)} ms — si fue instantáneo y "default"/"denied", el navegador no mostró el diálogo)`);
+      report();
+      if (result !== "granted") return;
+      const reg = await registerHivaraSw();
+      await navigator.serviceWorker.ready;
+      await subscribe(reg);
+      log(`[${source}] ✅ suscripto`);
+    }
+
+    $("btnRegister").onclick = () => registerHivaraSw().catch(() => {});
+    $("btnRootSw").onclick = async () => {
+      try {
+        const reg = await navigator.serviceWorker.register("/root-sw.js", { scope: "/" });
+        log("SW 'del partner' registrado", { scope: reg.scope });
+      } catch (e) { log("❌ SW raíz falló:", String(e)); }
+    };
+    $("btnListSw").onclick = async () => {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      log("Registros:", regs.map((r) => ({ scope: r.scope, script: (r.active || r.waiting || r.installing || {}).scriptURL })));
+    };
+    $("btnActivate").onclick = () => requestAndSubscribe("Test A top-level").catch((e) => log("❌", String(e)));
+    $("btnUnsubscribe").onclick = async () => {
+      const reg = await navigator.serviceWorker.getRegistration(SW_SCOPE);
+      const sub = reg && (await reg.pushManager.getSubscription());
+      if (sub) { await sub.unsubscribe(); log("Desuscripto"); }
+      showSubscription(null);
+    };
+    $("btnCopy").onclick = async () => {
+      await navigator.clipboard.writeText($("subscription").textContent);
+      log("Suscripción copiada al portapapeles");
+    };
+
+    // Test B: a data: URL iframe has an opaque origin, i.e. it is cross-origin to this page, like
+    // the bubble's iframe is to a partner page. Its button only posts a message; the PARENT then
+    // asks for permission, relying on the click's activation propagating up.
+    const frameHtml = `<!doctype html><body style="font-family:sans-serif;margin:8px">
+      <button style="padding:8px 12px" onclick="parent.postMessage('SPIKE_IFRAME_CLICK','*')">
+        Clic dentro del iframe (cross-origin) → el padre pide permiso</button></body>`;
+    $("xoFrame").src = "data:text/html;charset=utf-8," + encodeURIComponent(frameHtml);
+    window.addEventListener("message", (event) => {
+      if (event.data === "SPIKE_IFRAME_CLICK") {
+        requestAndSubscribe("Test B iframe").catch((e) => log("❌", String(e)));
+      }
+    });
+
+    // Messages from the SW: received pushes and the click deep link.
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.addEventListener("message", (event) => {
+        if (event.data && event.data.type === "HIVARA_OPEN_CHAT") { $("openBanner").style.display = "block"; log("HIVARA_OPEN_CHAT recibido del SW"); }
+        if (event.data && event.data.type === "SPIKE_PUSH_RECEIVED") log("Push recibido por el SW:", event.data.payload);
+      });
+    }
+    const params = new URLSearchParams(location.search);
+    if (params.get("hivara_chat") === "open") {
+      $("openBanner").style.display = "block";
+      log("Deep link hivara_chat=open detectado");
+      params.delete("hivara_chat");
+      history.replaceState(null, "", location.pathname + (params.toString() ? "?" + params : ""));
+    }
+
+    report();
+    (async () => {
+      if (!("serviceWorker" in navigator)) return;
+      const reg = await navigator.serviceWorker.getRegistration(SW_SCOPE);
+      const sub = reg && (await reg.pushManager.getSubscription());
+      if (sub) { showSubscription(sub); log("Suscripción existente recuperada (re-sincronización)"); }
+    })();
+  </script>
+</body>
+</html>

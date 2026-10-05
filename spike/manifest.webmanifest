@@ -1,0 +1,9 @@
+{
+  "name": "Hivara Push Spike",
+  "short_name": "PushSpike",
+  "start_url": "/push-spike.html",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#111827",
+  "theme_color": "#16a34a"
+}
