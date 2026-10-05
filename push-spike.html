@@ -99,6 +99,17 @@
       }
     }
 
+    function waitUntilActive(reg) {
+      if (reg.active) return Promise.resolve(reg);
+      const worker = reg.installing || reg.waiting;
+      return new Promise((resolve, reject) => {
+        worker.addEventListener("statechange", () => {
+          if (worker.state === "activated") resolve(reg);
+          if (worker.state === "redundant") reject(new Error("SW redundant (¿falló importScripts?)"));
+        });
+      });
+    }
+
     async function subscribe(reg) {
       const sub = await reg.pushManager.subscribe({
         userVisibleOnly: true,
@@ -122,7 +133,9 @@
       report();
       if (result !== "granted") return;
       const reg = await registerHivaraSw();
-      await navigator.serviceWorker.ready;
+      // NOT navigator.serviceWorker.ready: it only resolves for a registration whose scope covers
+      // THIS page, and /hivara-push/ never covers it — it would wait forever.
+      await waitUntilActive(reg);
       await subscribe(reg);
       log(`[${source}] ✅ suscripto`);
     }
