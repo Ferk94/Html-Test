@@ -1,3 +1,4 @@
-// Partner-side file (spike): the single line a partner would host. All the logic is served
-// cross-origin, exactly like production will load https://chat-widget-static.hivara.ai/push/sw.js.
-importScripts("https://cdn.jsdelivr.net/gh/Ferk94/Html-Test@push-spike/spike/push-sw.js");
+// Partner-side file: the single line every platform hosts at /hivara-push/sw.js.
+// All the logic is served by the bubble's CDN (preprod host here; prod uses
+// https://chat-widget-static.hivara.ai/assets/push/sw.js).
+importScripts("https://chat-widget-preprod.agentes-ia.net/assets/push/sw.js");
