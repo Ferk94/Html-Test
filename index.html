@@ -282,6 +282,33 @@
       }, 500);
     })();
   </script>
+
+  <script>
+    // Partner's OWN service worker at "/" (see root-sw.js), to check it coexists with the bubble's
+    // one at /hivara-push/. Open with ?root_sw=off to unregister it and compare.
+    (function () {
+      if (!("serviceWorker" in navigator)) return;
+      const off = new URLSearchParams(location.search).get("root_sw") === "off";
+      if (off) {
+        navigator.serviceWorker.getRegistration("/").then((reg) => {
+          if (reg && new URL(reg.scope).pathname === "/") {
+            reg.unregister().then(() => console.log("[partner-sw] unregistered"));
+          }
+        });
+        return;
+      }
+      navigator.serviceWorker
+        .register("/root-sw.js", { scope: "/" })
+        .then((reg) => console.log("[partner-sw] registered, scope:", reg.scope))
+        .catch((err) => console.error("[partner-sw] registration failed", err));
+      navigator.serviceWorker.addEventListener("message", (event) => {
+        if (event.data && event.data.type === "PARTNER_SW_PONG") console.log("[partner-sw] pong", event.data.version);
+      });
+      navigator.serviceWorker.ready.then((reg) => {
+        if (reg.active) reg.active.postMessage("PARTNER_SW_PING");
+      });
+    })();
+  </script>
 </body>
 
 
